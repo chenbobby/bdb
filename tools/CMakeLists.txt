@@ -1,6 +1,6 @@
 add_executable(bdb bdb.cpp)
 
-target_link_libraries(bdb PRIVATE bdb::libbdb)
+target_link_libraries(bdb PRIVATE bdb::libbdb PkgConfig::libedit)
 
 include(GNUInstallDirs)
 

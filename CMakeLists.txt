@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.25)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 set(CMAKE_TOOLCHAIN_FILE "/home/linuxdev/vcpkg/scripts/buildsystems/vcpkg.cmake") 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON) 
 
 project("bdb" LANGUAGES CXX)
 
