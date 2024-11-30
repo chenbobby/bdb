@@ -19,7 +19,7 @@ enum class TraceeState {
 // An event that is created when a tracee is stopped.
 class TraceeStoppedEvent {
 public:
-  TraceeStoppedEvent(const pid_t& pid, const int wait_status);
+  explicit TraceeStoppedEvent(const pid_t& pid, const int wait_status);
 
   /**
    * Instance methods
@@ -37,8 +37,9 @@ private:
 
 class Tracee {
 public:
-  Tracee() noexcept;
-  Tracee(const pid_t& pid, const bool should_terminate_session_on_end) noexcept;
+  explicit Tracee() noexcept;
+  explicit Tracee(const pid_t& pid,
+                  const bool should_terminate_session_on_end) noexcept;
   ~Tracee() noexcept;
 
   /**

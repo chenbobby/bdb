@@ -1,6 +1,7 @@
 #include <asm-generic/errno-base.h>
 #include <cerrno>
 #include <signal.h>
+#include <stdexcept>
 #include <sys/types.h>
 
 #include <catch2/catch_test_macros.hpp>
@@ -27,6 +28,6 @@ TEST_CASE("Tracee::launch succeeds", "[tracee]") {
   REQUIRE(pid_exists(tracee->pid()));
 }
 
-// TEST_CASE("Tracee::launch throws when no such program", "[tracee]") {
-//   REQUIRE_THROWS_AS(bdb::Tracee::launch("no_such_program"), bdb::Error);
-// }
+TEST_CASE("Tracee::launch throws when no such program", "[tracee]") {
+  REQUIRE_THROWS_AS(bdb::Tracee::launch("no_such_program"), bdb::Error);
+}

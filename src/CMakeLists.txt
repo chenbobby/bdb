@@ -3,6 +3,7 @@ include(GNUInstallDirs)
 add_library(libbdb
     error.cpp
     libbdb.cpp
+    pipe.cpp
     tracee.cpp
 )
 add_library(bdb::libbdb

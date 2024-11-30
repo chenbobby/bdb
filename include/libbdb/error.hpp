@@ -8,12 +8,14 @@
 
 namespace bdb {
 
+std::string message_with_errno(const std::string_view& message) noexcept;
+
 // A runtime error that may be thrown from within `bdb`.
 class Error : public std::runtime_error {
 public:
-  Error(const std::string_view& message);
+  explicit Error(const std::string_view& message) noexcept;
 
-  static Error with_errno(const std::string_view& message);
+  static Error with_errno(const std::string_view& message) noexcept;
 };
 
 } // namespace bdb

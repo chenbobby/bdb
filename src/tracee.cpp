@@ -1,14 +1,15 @@
-#include "libbdb/error.hpp"
 #include <cstdlib>
 #include <cstring>
-#include <libbdb/tracee.hpp>
-
 #include <iostream> // std::perror, std::cerr, std::endl
 #include <memory>   // std::unique_ptr, std::make_unique
 #include <ostream>
 #include <string>
 #include <sys/ptrace.h> // ptrace, PTRACE_CONT
 #include <sys/wait.h>   // waitpid
+
+#include <libbdb/error.hpp>
+#include <libbdb/pipe.hpp>
+#include <libbdb/tracee.hpp>
 
 namespace bdb {
 
@@ -94,19 +95,31 @@ Tracee::~Tracee() noexcept {
 }
 
 std::unique_ptr<Tracee> Tracee::launch(const std::filesystem::path& path) {
+  auto channel{Pipe{true}};
+
   pid_t pid;
   if ((pid = fork()) == 0) {
     // Newly forked process.
+    channel.close_receiver();
     if (ptrace(PTRACE_TRACEME, 0, nullptr, nullptr) < 0) {
-      throw Error::with_errno("failed to attach to the newly forked process");
+      channel.send(
+          message_with_errno("failed to trace the newly forked process"));
+      exit(EXIT_FAILURE);
     }
-
-    // std::cout << path << std::endl;
 
     if (execlp(path.c_str(), path.c_str(), nullptr) < 0) {
-      throw Error::with_errno("failed to exec the newly forked process");
+      channel.send(
+          message_with_errno("failed to exec the newly forked process"));
+      exit(EXIT_FAILURE);
     }
     // Unreachable if newly forked process has successfully exec'ed.
+  }
+  channel.close_sender();
+
+  const auto data{channel.receive()};
+  if (data.size() > 0) {
+    waitpid(pid, nullptr, 0);
+    throw Error{data};
   }
 
   auto tracee{std::make_unique<Tracee>(pid, true)};
