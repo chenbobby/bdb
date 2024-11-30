@@ -11,7 +11,7 @@
 #include <editline/readline.h>
 
 #include <libbdb/libbdb.hpp>
-#include <libbdb/process.hpp>
+#include <libbdb/tracee.hpp>
 #include <vector>
 
 namespace {
@@ -36,16 +36,16 @@ bool is_prefix(const std::string_view& str, const std::string_view& prefix) {
   return std::equal(prefix.begin(), prefix.end(), str.begin());
 }
 
-void handle_command(std::unique_ptr<bdb::Process>& process,
+void handle_command(std::unique_ptr<bdb::Tracee>& tracee,
                     const std::string_view& line) {
   // TODO: Refactor out line parsing from command handling.
   const auto args{split(line, ' ')};
   const auto command{args[0]};
 
   if (is_prefix(command, "continue")) {
-    process->resume();
-    auto process_stopped_event{process->wait_on_signal()};
-    process_stopped_event.print(std::cerr);
+    tracee->resume();
+    auto tracee_stopped_event{tracee->wait_on_signal()};
+    tracee_stopped_event.print(std::cerr);
     return;
   }
 
@@ -83,7 +83,7 @@ Command parse_input(int argc, const char** argv) {
   return CommandLaunch{program_path, args};
 }
 
-void run_debug_session(std::unique_ptr<bdb::Process>& process) {
+void run_debug_session(std::unique_ptr<bdb::Tracee>& tracee) {
   char* line{nullptr};
   while ((line = readline("bdb> ")) != nullptr) {
     std::string line_str;
@@ -100,7 +100,7 @@ void run_debug_session(std::unique_ptr<bdb::Process>& process) {
     }
 
     if (!line_str.empty()) {
-      handle_command(process, line_str);
+      handle_command(tracee, line_str);
     }
   }
 }
@@ -117,16 +117,16 @@ int main(int argc, const char** argv) {
 
   if (std::holds_alternative<CommandAttach>(command)) {
     const auto command_attach{std::get<CommandAttach>(command)};
-    auto process{bdb::Process::attach(command_attach.pid)};
+    auto tracee{bdb::Tracee::attach(command_attach.pid)};
     // TODO: Run debugging session.
-    run_debug_session(process);
+    run_debug_session(tracee);
     exit(EXIT_SUCCESS);
   }
 
   assert(std::holds_alternative<CommandLaunch>(command));
   const auto command_launch{std::get<CommandLaunch>(command)};
-  // TODO: Pass `args` into Process factory method.
-  auto process{bdb::Process::launch(command_launch.program_path)};
-  run_debug_session(process);
+  // TODO: Pass `args` into Tracee factory method.
+  auto tracee{bdb::Tracee::launch(command_launch.program_path)};
+  run_debug_session(tracee);
   exit(EXIT_SUCCESS);
 }

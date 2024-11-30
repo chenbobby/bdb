@@ -1,6 +1,6 @@
 include(GNUInstallDirs)
 
-add_library(libbdb libbdb.cpp process.cpp)
+add_library(libbdb libbdb.cpp tracee.cpp)
 add_library(bdb::libbdb ALIAS libbdb)
 
 set_target_properties(

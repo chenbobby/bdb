@@ -34,7 +34,6 @@ Apache-2.0
 
 ## Improvements
 
--[ ] Rename `Process` class to `Tracee`.
 -[ ] Rename `_should_terminate_session_on_end` to `_should_terminate_on_detach`.
--[ ] Construct a `ProcessStoppedEvent` directly from a `waitpid` system call.
+-[ ] Construct a `TraceeStoppedEvent` directly from a `waitpid` system call.
 -[ ] Support tracing of multiple tracees.
