@@ -97,8 +97,8 @@ Tracee::~Tracee() noexcept {
 std::unique_ptr<Tracee> Tracee::launch(const std::filesystem::path& path) {
   auto channel{Pipe{true}};
 
-  pid_t pid;
-  if ((pid = fork()) == 0) {
+  const auto pid{fork()};
+  if (pid == 0) {
     // Newly forked process.
     channel.close_receiver();
     if (ptrace(PTRACE_TRACEME, 0, nullptr, nullptr) < 0) {
