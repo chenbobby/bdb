@@ -21,8 +21,13 @@ class TraceeStoppedEvent {
 public:
   TraceeStoppedEvent(const pid_t& pid, const int wait_status);
 
-  TraceeState tracee_state() const { return this->_tracee_state; }
-  void print(std::ostream& out);
+  /**
+   * Instance methods
+   */
+
+  TraceeState tracee_state() const noexcept { return this->_tracee_state; }
+
+  void print(std::ostream& out) noexcept;
 
 private:
   pid_t _pid;
@@ -32,22 +37,20 @@ private:
 
 class Tracee {
 public:
-  Tracee()
-      : _pid{0}, _state{TraceeState::STOPPED}, _should_terminate_session_on_end{
-                                                   false} {}
+  Tracee() noexcept;
+  Tracee(const pid_t& pid, const bool should_terminate_session_on_end) noexcept;
+  ~Tracee() noexcept;
 
-  Tracee(const pid_t& pid, const bool should_terminate_session_on_end)
-      : _pid{pid}, _state{TraceeState::STOPPED},
-        _should_terminate_session_on_end{should_terminate_session_on_end} {}
-
-  /* Disable copy construction and copy assignment */
+  /**
+   * Disable copy construction and copy assignment
+   */
 
   Tracee(const Tracee&) = delete;
   Tracee& operator=(const Tracee&) = delete;
 
-  ~Tracee();
-
-  /* Factory methods */
+  /**
+   * Factory methods
+   */
 
   // Constructs a `Tracee` by executing a new program at `path`.
   static std::unique_ptr<Tracee> launch(const std::filesystem::path& path);
@@ -55,7 +58,11 @@ public:
   // Constructs a `Tracee` by attaching to an existing PID.
   static std::unique_ptr<Tracee> attach(const pid_t& pid);
 
-  /* Instance methods */
+  /**
+   *Instance methods
+   */
+
+  pid_t pid() const noexcept;
 
   // Resume execution of the tracee.
   void resume();
@@ -63,8 +70,6 @@ public:
   // Wait on the tracee. Return a `TraceeStoppedEvent` when the tracee is
   // stopped.
   TraceeStoppedEvent wait_on_signal();
-
-  pid_t pid() const;
 
 private:
   pid_t _pid;

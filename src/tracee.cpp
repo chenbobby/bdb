@@ -1,3 +1,4 @@
+#include "libbdb/error.hpp"
 #include <cstdlib>
 #include <cstring>
 #include <libbdb/tracee.hpp>
@@ -5,6 +6,7 @@
 #include <iostream> // std::perror, std::cerr, std::endl
 #include <memory>   // std::unique_ptr, std::make_unique
 #include <ostream>
+#include <string>
 #include <sys/ptrace.h> // ptrace, PTRACE_CONT
 #include <sys/wait.h>   // waitpid
 
@@ -30,13 +32,12 @@ TraceeStoppedEvent::TraceeStoppedEvent(const pid_t& pid, const int wait_status)
     return;
   }
 
-  std::cerr
-      << "TraceeStoppedEvent constructor received unexpected wait_status \""
-      << wait_status << "\"" << std::endl;
-  exit(EXIT_FAILURE);
+  throw Error{
+      "TraceeStoppedEvent constructor received unexpected wait_status \"" +
+      std::to_string(wait_status) + "\""};
 }
 
-void TraceeStoppedEvent::print(std::ostream& out) {
+void TraceeStoppedEvent::print(std::ostream& out) noexcept {
   out << "Tracee (" << this->_pid << ") ";
 
   switch (this->_tracee_state) {
@@ -55,7 +56,16 @@ void TraceeStoppedEvent::print(std::ostream& out) {
   out << std::endl;
 }
 
-Tracee::~Tracee() {
+Tracee::Tracee() noexcept
+    : _pid{0}, _state{TraceeState::STOPPED}, _should_terminate_session_on_end{
+                                                 false} {}
+
+Tracee::Tracee(const pid_t& pid,
+               const bool should_terminate_session_on_end) noexcept
+    : _pid{pid}, _state{TraceeState::STOPPED},
+      _should_terminate_session_on_end{should_terminate_session_on_end} {}
+
+Tracee::~Tracee() noexcept {
   if (this->_pid == 0) {
     return;
   }
@@ -63,20 +73,23 @@ Tracee::~Tracee() {
   int wait_status;
   int wait_options{0};
   if (this->_state == TraceeState::RUNNING) {
-    std::cerr << "Stopping inferior tracee..." << std::endl;
+    std::cerr << "Stopping pid (" << this->_pid << ")..." << std::endl;
     kill(this->_pid, SIGSTOP);
     waitpid(this->_pid, &wait_status, wait_options);
   }
-  std::cerr << "Inferier tracee is stopped." << std::endl;
+  std::cerr << "Stopped pid (" << this->_pid << ")." << std::endl;
 
-  std::cerr << "Detaching from inferior tracee..." << std::endl;
+  std::cerr << "Detaching from pid (" << this->_pid << ")..." << std::endl;
   ptrace(PTRACE_DETACH, this->_pid, nullptr, nullptr);
+  std::cerr << "Detached from pid (" << this->_pid << ")." << std::endl;
+
   kill(this->_pid, SIGCONT);
 
   if (this->_should_terminate_session_on_end) {
-    std::cerr << "Terminating inferior tracee..." << std::endl;
+    std::cerr << "Terminating pid (" << this->_pid << ")..." << std::endl;
     kill(this->_pid, SIGKILL);
     waitpid(this->_pid, &wait_status, wait_options);
+    std::cerr << "Terminated pid (" << this->_pid << ")." << std::endl;
   }
 }
 
@@ -84,31 +97,32 @@ std::unique_ptr<Tracee> Tracee::launch(const std::filesystem::path& path) {
   pid_t pid;
   if ((pid = fork()) == 0) {
     // Newly forked process.
-    if (ptrace(PTRACE_TRACEME, 0, nullptr, nullptr)) {
-      std::perror("failed to attach to the newly forked process");
-      exit(EXIT_FAILURE);
+    if (ptrace(PTRACE_TRACEME, 0, nullptr, nullptr) < 0) {
+      throw Error::with_errno("failed to attach to the newly forked process");
     }
+
+    // std::cout << path << std::endl;
 
     if (execlp(path.c_str(), path.c_str(), nullptr) < 0) {
-      std::perror("failed to exec the newly forked process");
-      exit(EXIT_FAILURE);
+      throw Error::with_errno("failed to exec the newly forked process");
     }
-    // Unreachable if newly forked tracee has successfully exec'ed.
+    // Unreachable if newly forked process has successfully exec'ed.
   }
 
-  return std::make_unique<Tracee>(pid, true);
+  auto tracee{std::make_unique<Tracee>(pid, true)};
+  tracee->wait_on_signal();
+  return tracee;
 }
 
 // Constructs a `Tracee` by attaching to an existing process with PID `pid`.
 std::unique_ptr<Tracee> Tracee::attach(const pid_t& pid) {
   if (pid == 0) {
-    std::cerr << "invalid pid \"" << pid << "\"" << std::endl;
-    exit(EXIT_FAILURE);
+    throw Error{"invalid pid \"" + std::to_string(pid) + "\""};
   }
 
   if (ptrace(PTRACE_ATTACH, pid, nullptr, nullptr) < 0) {
-    std::perror("failed to attach to existing process");
-    exit(EXIT_FAILURE);
+    throw Error::with_errno("failed to attach to pid \"" + std::to_string(pid) +
+                            "\"");
   }
 
   return std::make_unique<Tracee>(pid, true);
@@ -116,8 +130,8 @@ std::unique_ptr<Tracee> Tracee::attach(const pid_t& pid) {
 
 void Tracee::resume() {
   if (ptrace(PTRACE_CONT, this->_pid, nullptr, nullptr) < 0) {
-    std::perror("failed to continue tracing");
-    exit(EXIT_FAILURE);
+    throw Error::with_errno("failed to resume pid (" +
+                            std::to_string(this->_pid) + ")");
   }
   this->_state = TraceeState::RUNNING;
 }
@@ -126,8 +140,8 @@ TraceeStoppedEvent Tracee::wait_on_signal() {
   int wait_status;
   int wait_options{0};
   if (waitpid(this->_pid, &wait_status, wait_options) < 0) {
-    std::perror("failed to wait on tracee");
-    exit(EXIT_FAILURE);
+    throw Error::with_errno("failed to wait on pid (" +
+                            std::to_string(this->_pid) + ")");
   }
 
   auto tracee_stopped_event{TraceeStoppedEvent{this->_pid, wait_status}};
@@ -135,6 +149,6 @@ TraceeStoppedEvent Tracee::wait_on_signal() {
   return tracee_stopped_event;
 }
 
-pid_t Tracee::pid() const { return this->_pid; }
+pid_t Tracee::pid() const noexcept { return this->_pid; }
 
 } // namespace bdb

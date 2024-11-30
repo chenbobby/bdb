@@ -1,14 +1,22 @@
 include(GNUInstallDirs)
 
-add_library(libbdb libbdb.cpp tracee.cpp)
-add_library(bdb::libbdb ALIAS libbdb)
+add_library(libbdb
+    error.cpp
+    libbdb.cpp
+    tracee.cpp
+)
+add_library(bdb::libbdb
+    ALIAS libbdb
+)
 
 set_target_properties(
     libbdb
     PROPERTIES OUTPUT_NAME bdb
 )
 
-target_compile_features(libbdb PUBLIC cxx_std_17)
+target_compile_features(libbdb
+    PUBLIC cxx_std_17
+)
 
 target_include_directories(
     libbdb
