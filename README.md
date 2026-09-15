@@ -1,6 +1,6 @@
 # bdb: Bobby's Debugger
 
-Testing a trigger.
+Testing a trigger2.
 
 ## Installation
 
